@@ -1,0 +1,700 @@
+// ===========================================
+// الجزء 1: تفعيل الوضع الداكن + تحسينات
+// ===========================================
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = themeToggle.querySelector('i');
+
+// دالة تفعيل/إلغاء الوضع الداكن
+const toggleDarkMode = () => {
+    document.body.classList.toggle('dark-mode');
+    
+    if (document.body.classList.contains('dark-mode')) {
+        themeIcon.classList.replace('fa-moon', 'fa-sun');
+        localStorage.setItem('theme', 'dark');
+        showNotification('تم تفعيل الوضع الليلي 🌙');
+    } else {
+        themeIcon.classList.replace('fa-sun', 'fa-moon');
+        localStorage.setItem('theme', 'light');
+        showNotification('تم تفعيل الوضع النهاري ☀️');
+    }
+};
+
+// تحميل السمة المحفوظة
+const loadSavedTheme = () => {
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeIcon.classList.replace('fa-moon', 'fa-sun');
+    }
+};
+
+// إضافة حدث النقر
+themeToggle.addEventListener('click', toggleDarkMode);
+
+// ===========================================
+// الجزء 2: قائمة الجوال المتحركة
+// ===========================================
+const createMobileMenu = () => {
+    const nav = document.querySelector(".navigation");
+    const header = document.querySelector("header");
+    
+    // إنشاء زر القائمة
+    const mobileBtn = document.createElement("button");
+    mobileBtn.className = "mobile-menu-btn";
+    mobileBtn.setAttribute("aria-label", "فتح/إغلاق القائمة");
+    mobileBtn.innerHTML = '<i class="fas fa-bars"></i>';
+    header.appendChild(mobileBtn);
+    
+    // إغلاق القائمة عند النقر على رابط
+    const navLinks = document.querySelectorAll(".navigation a");
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            nav.classList.remove("open");
+            mobileBtn.innerHTML = '<i class="fas fa-bars"></i>';
+        });
+    });
+    
+    // تبديل القائمة
+    mobileBtn.addEventListener("click", () => {
+        nav.classList.toggle("open");
+        mobileBtn.innerHTML = nav.classList.contains("open")
+            ? '<i class="fas fa-times"></i>'
+            : '<i class="fas fa-bars"></i>';
+    });
+    
+    // إغلاق القائمة عند النقر خارجها
+    document.addEventListener('click', (e) => {
+        if (!nav.contains(e.target) && !mobileBtn.contains(e.target) && nav.classList.contains("open")) {
+            nav.classList.remove("open");
+            mobileBtn.innerHTML = '<i class="fas fa-bars"></i>';
+        }
+    });
+};
+
+// ===========================================
+// الجزء 3: عربة التسوق المحسنة
+// ===========================================
+const setupShoppingCart = () => {
+    let cartCount = 0;
+    let cartItems = [];
+    const cartIcon = document.querySelector(".cart-icon");
+    
+    // إنشاء عداد العربة
+    const counter = document.createElement("span");
+    counter.className = "cart-counter";
+    counter.textContent = cartCount;
+    cartIcon.appendChild(counter);
+    
+    // تحديث العداد
+    const updateCartCounter = () => {
+        counter.textContent = cartCount;
+        counter.classList.add("pop");
+        setTimeout(() => counter.classList.remove("pop"), 300);
+    };
+    
+    // إضافة المنتجات للعربة
+    const addToCartButtons = document.querySelectorAll(".product-card .main-btn");
+    
+    addToCartButtons.forEach((btn, index) => {
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            
+            // الحصول على معلومات المنتج
+            const productCard = btn.closest('.product-card');
+            const productName = productCard.querySelector('h3').textContent;
+            const productPrice = productCard.querySelector('.currency').nextSibling.textContent.trim();
+            const productImage = productCard.querySelector('img')?.src || '';
+            
+            cartCount++;
+            cartItems.push({
+                id: index + 1,
+                name: productName,
+                price: productPrice,
+                image: productImage
+            });
+            
+            updateCartCounter();
+            showNotification(`تم إضافة "${productName}" إلى العربة 🛒`);
+            
+            // حفظ في localStorage
+            localStorage.setItem('cartCount', cartCount);
+            localStorage.setItem('cartItems', JSON.stringify(cartItems));
+        });
+    });
+    
+    // تحميل العربة المحفوظة
+    const loadSavedCart = () => {
+        const savedCount = localStorage.getItem('cartCount');
+        const savedItems = localStorage.getItem('cartItems');
+        
+        if (savedCount) {
+            cartCount = parseInt(savedCount);
+            counter.textContent = cartCount;
+        }
+        
+        if (savedItems) {
+            cartItems = JSON.parse(savedItems);
+        }
+    };
+    
+    // عرض سلة التسوق عند النقر على الأيقونة
+    cartIcon.addEventListener('click', (e) => {
+        e.preventDefault();
+        showCartModal();
+    });
+    
+    // إنشاء مودال العربة
+    const showCartModal = () => {
+        // إنشاء المودال
+        const modal = document.createElement('div');
+        modal.className = 'cart-modal';
+        modal.innerHTML = `
+            <div class="cart-modal-content">
+                <div class="cart-modal-header">
+                    <h3>🛒 سلة التسوق</h3>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="cart-modal-body">
+                    ${cartCount === 0 
+                        ? '<p class="empty-cart">السلة فارغة حالياً</p>' 
+                        : cartItems.map(item => `
+                            <div class="cart-item">
+                                <div class="cart-item-info">
+                                    <h4>${item.name}</h4>
+                                    <p>السعر: ${item.price} د.ل</p>
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+                <div class="cart-modal-footer">
+                    <p>إجمالي المنتجات: ${cartCount}</p>
+                    <button class="main-btn checkout-btn">إتمام الشراء</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // إغلاق المودال
+        const closeBtn = modal.querySelector('.close-modal');
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        // إغلاق عند النقر خارج المودال
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+        // زر إتمام الشراء
+        if (cartCount > 0) {
+            const checkoutBtn = modal.querySelector('.checkout-btn');
+            checkoutBtn.addEventListener('click', () => {
+                showNotification('جاري إتمام عملية الشراء... ⏳');
+                setTimeout(() => {
+                    showNotification('تم إتمام الشراء بنجاح! شكراً لك 🎉');
+                    cartCount = 0;
+                    cartItems = [];
+                    updateCartCounter();
+                    localStorage.removeItem('cartCount');
+                    localStorage.removeItem('cartItems');
+                    modal.remove();
+                }, 2000);
+            });
+        }
+    };
+    
+    loadSavedCart();
+};
+
+// ===========================================
+// الجزء 4: تأثيرات التمرير والظهور
+// ===========================================
+const setupScrollAnimations = () => {
+    const revealElements = document.querySelectorAll(".section, .product-card, .feature-box, .review-card");
+    
+    // إضافة كائن مراقب IntersectionObserver
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    });
+    
+    // مراقبة جميع العناصر
+    revealElements.forEach(el => {
+        observer.observe(el);
+    });
+    
+    // تأثير على الهيدر عند التمرير
+    const header = document.querySelector('header');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 100) {
+            header.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+            header.style.padding = '0.5rem 5%';
+        } else {
+            header.style.boxShadow = 'var(--shadow)';
+            header.style.padding = '1rem 5%';
+        }
+    });
+};
+
+// ===========================================
+// الجزء 5: نظام الإشعارات
+// ===========================================
+const showNotification = (message) => {
+    // إنشاء عنصر الإشعار
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    
+    // إضافة الإشعار للصفحة
+    document.body.appendChild(notification);
+    
+    // إظهار الإشعار
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    
+    // إخفاء الإشعار بعد 3 ثواني
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 3000);
+};
+
+// ===========================================
+// الجزء 6: نماذج الاتصال والتقييمات
+// ===========================================
+const setupFormsAndReviews = () => {
+    // نموذج الاتصال
+    const contactForm = document.querySelector('.contact-form .main-btn');
+    if (contactForm) {
+        contactForm.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const message = document.getElementById('message').value;
+            
+            if (!name || !email || !message) {
+                showNotification('⚠️ يرجى ملء جميع الحقول');
+                return;
+            }
+            
+            showNotification('📧 جاري إرسال رسالتك...');
+            
+            // محاكاة الإرسال
+            setTimeout(() => {
+                showNotification('✅ تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.');
+                document.getElementById('name').value = '';
+                document.getElementById('email').value = '';
+                document.getElementById('message').value = '';
+            }, 1500);
+        });
+    }
+    
+    // إضافة تقييم جديد (محاكاة)
+    const addReviewButton = document.createElement('button');
+    addReviewButton.className = 'main-btn';
+    addReviewButton.textContent = 'أضف تقييمك';
+    addReviewButton.style.margin = '2rem auto';
+    addReviewButton.style.display = 'block';
+    
+    const reviewSection = document.querySelector('#review .section');
+    if (reviewSection) {
+        reviewSection.appendChild(addReviewButton);
+        
+        addReviewButton.addEventListener('click', () => {
+            showReviewModal();
+        });
+    }
+    
+    // مودال التقييم
+    const showReviewModal = () => {
+        const modal = document.createElement('div');
+        modal.className = 'review-modal';
+        modal.innerHTML = `
+            <div class="review-modal-content">
+                <div class="review-modal-header">
+                    <h3>✍️ أضف تقييمك</h3>
+                    <button class="close-review-modal">&times;</button>
+                </div>
+                <div class="review-modal-body">
+                    <div class="star-rating">
+                        <i class="fas fa-star" data-rating="1"></i>
+                        <i class="fas fa-star" data-rating="2"></i>
+                        <i class="fas fa-star" data-rating="3"></i>
+                        <i class="fas fa-star" data-rating="4"></i>
+                        <i class="fas fa-star" data-rating="5"></i>
+                    </div>
+                    <textarea placeholder="اكتب تقييمك هنا..." class="review-textarea"></textarea>
+                    <input type="text" placeholder="اسمك" class="review-name">
+                </div>
+                <div class="review-modal-footer">
+                    <button class="main-btn submit-review">إرسال التقييم</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // تقييم النجوم
+        const stars = modal.querySelectorAll('.star-rating i');
+        let selectedRating = 0;
+        
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                selectedRating = parseInt(star.dataset.rating);
+                stars.forEach((s, index) => {
+                    if (index < selectedRating) {
+                        s.style.color = '#ffd700';
+                    } else {
+                        s.style.color = '#ccc';
+                    }
+                });
+            });
+            
+            star.addEventListener('mouseover', () => {
+                const rating = parseInt(star.dataset.rating);
+                stars.forEach((s, index) => {
+                    if (index < rating) {
+                        s.style.color = '#ffd700';
+                    }
+                });
+            });
+            
+            star.addEventListener('mouseout', () => {
+                stars.forEach((s, index) => {
+                    if (index >= selectedRating) {
+                        s.style.color = '#ccc';
+                    }
+                });
+            });
+        });
+        
+        // إغلاق المودال
+        modal.querySelector('.close-review-modal').addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+        // إرسال التقييم
+        modal.querySelector('.submit-review').addEventListener('click', () => {
+            const reviewText = modal.querySelector('.review-textarea').value;
+            const reviewerName = modal.querySelector('.review-name').value;
+            
+            if (!selectedRating || !reviewText || !reviewerName) {
+                showNotification('⚠️ يرجى ملء جميع الحواعد وإختيار التقييم');
+                return;
+            }
+            
+            showNotification('⭐ شكراً لتقييمك! تم إضافة التقييم بنجاح.');
+            modal.remove();
+        });
+    };
+};
+
+// ===========================================
+// الجزء 7: منتجات عشوائية ومؤقت
+// ===========================================
+const setupProductFeatures = () => {
+    // مؤقت للعروض
+    const discountBadges = document.querySelectorAll('.discount-badge');
+    
+    const updateTimer = () => {
+        const now = new Date();
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        const diff = endOfDay - now;
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        discountBadges.forEach(badge => {
+            const originalText = badge.textContent;
+            badge.setAttribute('data-original', originalText);
+            badge.innerHTML = `${originalText} <br><small>ينتهي خلال: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</small>`;
+        });
+    };
+    
+    // تحديث المؤقت كل ثانية
+    if (discountBadges.length > 0) {
+        updateTimer();
+        setInterval(updateTimer, 1000);
+    }
+    
+    // تفاعل عند تمرير الماوس على المنتجات
+    const productCards = document.querySelectorAll('.product-card');
+    productCards.forEach(card => {
+        const addButton = card.querySelector('.main-btn');
+        const originalText = addButton.textContent;
+        
+        card.addEventListener('mouseenter', () => {
+            addButton.textContent = '🛒 إضافة سريعة';
+        });
+        
+        card.addEventListener('mouseleave', () => {
+            addButton.textContent = originalText;
+        });
+    });
+};
+
+// ===========================================
+// الجزء 8: تهيئة جميع المميزات عند تحميل الصفحة
+// ===========================================
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 متجر أنجلينا - جاهز للتشغيل!');
+    
+    // تحميل السمة المحفوظة
+    loadSavedTheme();
+    
+    // إنشاء قائمة الجوال
+    createMobileMenu();
+    
+    // إعداد عربة التسوق
+    setupShoppingCart();
+    
+    // إعداد تأثيرات التمرير
+    setupScrollAnimations();
+    
+    // إعداد النماذج والتقييمات
+    setupFormsAndReviews();
+    
+    // إعداد مميزات المنتجات
+    setupProductFeatures();
+    
+    // عرض رسالة ترحيبية
+    setTimeout(() => {
+        showNotification('🌸 مرحباً بك في متجر أنجلينا للزهور!');
+    }, 1000);
+});
+
+// ===========================================
+// الجزء 9: إضافة أنماط CSS ديناميكية للإشعارات والمودالات
+// ===========================================
+const addDynamicStyles = () => {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* أنماط الإشعارات */
+        .notification {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 9999;
+            transform: translateX(150%);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        /* أنماط عداد العربة */
+        .cart-counter {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+        
+        .cart-counter.pop {
+            transform: scale(1.5);
+        }
+        
+        /* أنماط مودال العربة */
+        .cart-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .cart-modal-content {
+            background: var(--background);
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .cart-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+        
+        .empty-cart {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+        
+        .cart-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 10px;
+        }
+        
+        /* أنماط العناصر المتحركة */
+        .section, .product-card, .feature-box, .review-card {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        
+        .visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* أنماط زر قائمة الجوال */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+                position: absolute;
+                left: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+            
+            .navigation {
+                position: fixed;
+                top: 70px;
+                left: 0;
+                width: 100%;
+                background: var(--background);
+                flex-direction: column;
+                padding: 20px;
+                box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                transform: translateY(-150%);
+                transition: transform 0.3s ease;
+                z-index: 999;
+            }
+            
+            .navigation.open {
+                transform: translateY(0);
+            }
+            
+            .header-icons {
+                position: absolute;
+                right: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+        }
+        
+        /* أنماط مودال التقييم */
+        .review-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .review-modal-content {
+            background: var(--background);
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .star-rating {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .star-rating i {
+            color: #ccc;
+            transition: color 0.3s ease;
+        }
+        
+        .review-textarea, .review-name {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--background-alt);
+            color: var(--text-color);
+        }
+    `;
+    document.head.appendChild(style);
+};
+
+// إضافة الأنماط الديناميكية
+addDynamicStyles();
